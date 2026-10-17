@@ -366,12 +366,16 @@
   }
 
   async function clearAllData() {
+    // 关键：先关掉自己持有的数据库连接，否则 deleteDatabase 会被阻塞、数据删不掉
+    await closeDB();
+
     try {
       const req = indexedDB.deleteDatabase('lunch-db');
       await new Promise((resolve) => {
         req.onsuccess = resolve;
         req.onerror = resolve;
         req.onblocked = resolve;
+        setTimeout(resolve, 3000);
       });
     } catch (e) { /* 忽略，继续清缓存 */ }
 

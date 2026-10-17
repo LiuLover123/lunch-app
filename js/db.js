@@ -22,6 +22,17 @@ function openDB() {
   return dbPromise;
 }
 
+// 关闭连接：删除数据库前必须调用，否则 deleteDatabase 会被自己的连接阻塞
+async function closeDB() {
+  if (!dbPromise) return;
+  const pending = dbPromise;
+  dbPromise = null;
+  try {
+    const db = await pending;
+    db.close();
+  } catch (e) { /* 连接本来就失败，忽略 */ }
+}
+
 async function txStore(name, mode) {
   const db = await openDB();
   return db.transaction(name, mode).objectStore(name);

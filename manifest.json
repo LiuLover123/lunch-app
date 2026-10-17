@@ -1,0 +1,17 @@
+{
+  "name": "今天吃啥",
+  "short_name": "今天吃啥",
+  "description": "每日午饭签到，随机搭配推荐",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF8F3",
+  "theme_color": "#FF7A45",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

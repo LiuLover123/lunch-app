@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="今天吃啥">
+<meta name="theme-color" content="#FFF8F3">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="apple-touch-startup-image" href="icons/splash.png">
+<title>今天吃啥</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- 顶部栏 -->
+  <header class="topbar">
+    <button class="icon-btn" id="btn-prev" aria-label="上一个月">‹</button>
+    <h1 class="month-label" id="month-label">2026年10月</h1>
+    <button class="icon-btn" id="btn-next" aria-label="下一个月">›</button>
+    <button class="icon-btn add-btn" id="btn-add-dish" aria-label="添加菜品">＋</button>
+  </header>
+
+  <!-- 日历（可折叠） -->
+  <section class="calendar" id="calendar">
+    <div class="weekdays">
+      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+    </div>
+    <div class="days" id="days"></div>
+  </section>
+
+  <!-- 主内容区 -->
+  <main class="panel" id="panel">
+    <!-- 提示区：今天没吃 / 历史无记录 -->
+    <div class="notice hidden" id="notice">
+      <p id="notice-text"></p>
+    </div>
+
+    <!-- 签到区 -->
+    <div class="signin-view" id="signin-view">
+      <button class="signin-btn" id="btn-signin">今 日 签 到</button>
+    </div>
+
+    <!-- 结果区 -->
+    <div class="result-view hidden" id="result-view">
+      <div class="result-date" id="result-date"></div>
+      <div class="combo" id="combo"></div>
+      <div class="photo-slot" id="photo-slot">
+        <button class="add-photo" id="btn-add-photo" aria-label="添加照片">＋</button>
+        <span class="photo-hint">添加今天的照片</span>
+      </div>
+    </div>
+
+    <!-- 空状态 -->
+    <div class="empty-state hidden" id="empty-state">
+      <p>还没有菜品</p>
+      <p class="sub">点右上角的 ＋ 添加你的第一道菜</p>
+    </div>
+  </main>
+
+  <!-- 添加菜品面板 -->
+  <div class="sheet-mask hidden" id="sheet-mask"></div>
+  <div class="sheet hidden" id="dish-sheet">
+    <div class="sheet-head">
+      <h2>添加菜品</h2>
+      <button class="icon-btn" id="btn-close-sheet" aria-label="关闭">✕</button>
+    </div>
+    <div class="field">
+      <label>菜名</label>
+      <input type="text" id="input-name" placeholder="例如：番茄炒蛋" maxlength="20">
+    </div>
+    <div class="field">
+      <label>分类</label>
+      <div class="chips" id="category-chips">
+        <button class="chip" data-value="staple">主食</button>
+        <button class="chip" data-value="main">主菜</button>
+        <button class="chip" data-value="veg">素菜</button>
+      </div>
+    </div>
+    <button class="primary-btn" id="btn-save-dish">保存</button>
+    <div class="dish-list" id="dish-list"></div>
+  </div>
+
+  <input type="file" id="file-input" accept="image/*" class="hidden">
+
+</div>
+<script src="js/db.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

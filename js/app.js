@@ -445,16 +445,34 @@
     setInterval(check, 60000);
   }
 
+  // 新版本自动接管：检测到更新时刷新页面，避免一直看到旧缓存
+  function setupServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      location.reload();
+    });
+
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) reg.update().catch(() => {});
+      });
+    }).catch(() => {});
+  }
+
   async function init() {
     await refreshData();
     bind();
     renderCalendar();
     renderPanel();
     watchDayChange();
-
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    }
+    setupServiceWorker();
   }
 
   init();

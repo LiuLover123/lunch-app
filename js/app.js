@@ -18,6 +18,13 @@
     noticeText: $('notice-text'),
     btnPrev: $('btn-prev'),
     btnNext: $('btn-next'),
+    btnSettings: $('btn-settings'),
+    settingsMenu: $('settings-menu'),
+    menuClear: $('menu-clear'),
+    dialogMask: $('dialog-mask'),
+    dialogText: $('dialog-text'),
+    dialogCancel: $('dialog-cancel'),
+    dialogConfirm: $('dialog-confirm'),
     btnAddDish: $('btn-add-dish'),
     panel: $('panel'),
     signinView: $('signin-view'),
@@ -340,6 +347,47 @@
     });
   }
 
+  function toggleMenu(show) {
+    const next = show === undefined ? el.settingsMenu.classList.contains('hidden') : show;
+    el.settingsMenu.classList.toggle('hidden', !next);
+  }
+
+  let dialogResolve = null;
+
+  function openDialog(text) {
+    el.dialogText.textContent = text;
+    el.dialogMask.classList.remove('hidden');
+    return new Promise((resolve) => { dialogResolve = resolve; });
+  }
+
+  function closeDialog(result) {
+    el.dialogMask.classList.add('hidden');
+    if (dialogResolve) { dialogResolve(result); dialogResolve = null; }
+  }
+
+  async function clearAllData() {
+    try {
+      const req = indexedDB.deleteDatabase('lunch-db');
+      await new Promise((resolve) => {
+        req.onsuccess = resolve;
+        req.onerror = resolve;
+        req.onblocked = resolve;
+      });
+    } catch (e) { /* 忽略，继续清缓存 */ }
+
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch (e) { /* 忽略 */ }
+
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    } catch (e) { /* 忽略 */ }
+
+    location.reload();
+  }
+
   function bind() {
     el.btnPrev.addEventListener('click', () => {
       state.viewMonth--;
@@ -357,6 +405,18 @@
     el.btnSaveDish.addEventListener('click', saveDish);
     el.inputName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveDish(); });
     el.btnSignin.addEventListener('click', handleSignin);
+    el.btnSettings.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMenu();
+    });
+    el.menuClear.addEventListener('click', async () => {
+      toggleMenu(false);
+      const ok = await openDialog('此操作会丢失所有数据，是否清除？');
+      if (ok) clearAllData();
+    });
+    el.dialogCancel.addEventListener('click', () => closeDialog(false));
+    el.dialogConfirm.addEventListener('click', () => closeDialog(true));
+    document.addEventListener('click', () => toggleMenu(false));
     el.fileInput.addEventListener('change', (e) => {
       if (e.target.files && e.target.files[0]) handlePhoto(e.target.files[0]);
       e.target.value = '';

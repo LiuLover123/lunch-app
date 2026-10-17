@@ -20,6 +20,12 @@
 
   <!-- 顶部栏 -->
   <header class="topbar">
+    <div class="gear-wrap">
+      <button class="icon-btn" id="btn-settings" aria-label="设置">⚙</button>
+      <div class="menu hidden" id="settings-menu">
+        <button class="menu-item danger" id="menu-clear">清除缓存</button>
+      </div>
+    </div>
     <button class="icon-btn" id="btn-prev" aria-label="上一个月">‹</button>
     <h1 class="month-label" id="month-label">2026年10月</h1>
     <button class="icon-btn" id="btn-next" aria-label="下一个月">›</button>
@@ -87,6 +93,17 @@
   </div>
 
   <input type="file" id="file-input" accept="image/*" class="hidden">
+
+  <!-- 确认弹窗 -->
+  <div class="dialog-mask hidden" id="dialog-mask">
+    <div class="dialog">
+      <p class="dialog-text" id="dialog-text"></p>
+      <div class="dialog-actions">
+        <button class="dialog-btn" id="dialog-cancel">取消</button>
+        <button class="dialog-btn danger" id="dialog-confirm">确认</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 <script src="js/db.js"></script>

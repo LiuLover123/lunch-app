@@ -1,4 +1,4 @@
-const CACHE = 'lunch-v5';
+const CACHE = 'lunch-v6';
 const ASSETS = [
   './',
   './index.html',

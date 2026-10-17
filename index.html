@@ -32,7 +32,7 @@
     <button class="icon-btn add-btn" id="btn-add-dish" aria-label="添加菜品">＋</button>
   </header>
 
-  <!-- 日历（可折叠） -->
+  <!-- 日历 -->
   <section class="calendar" id="calendar">
     <div class="weekdays">
       <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
@@ -56,10 +56,7 @@
     <div class="result-view hidden" id="result-view">
       <div class="result-date" id="result-date"></div>
       <div class="combo" id="combo"></div>
-      <div class="photo-slot" id="photo-slot">
-        <button class="add-photo" id="btn-add-photo" aria-label="添加照片">＋</button>
-        <span class="photo-hint">添加今天的照片</span>
-      </div>
+      <div class="photo-grid" id="photo-grid"></div>
     </div>
 
     <!-- 空状态 -->
@@ -69,7 +66,36 @@
     </div>
   </main>
 
-  <!-- 添加菜品面板 -->
+  <!-- 签到方式选择 -->
+  <div class="sheet-mask hidden" id="choice-mask"></div>
+  <div class="sheet sheet-sm hidden" id="choice-sheet">
+    <div class="sheet-head">
+      <h2>今天怎么吃</h2>
+      <button class="icon-btn" id="btn-close-choice" aria-label="关闭">✕</button>
+    </div>
+    <button class="mode-btn" id="btn-random">
+      <span class="mode-title">随机搭配</span>
+      <span class="mode-sub">主食 + 两荤一素</span>
+    </button>
+    <button class="mode-btn" id="btn-manual">
+      <span class="mode-title">自己选菜</span>
+      <span class="mode-sub">从菜品里任选，想选几道选几道</span>
+    </button>
+  </div>
+
+  <!-- 自选菜单 -->
+  <div class="sheet-mask hidden" id="pick-mask"></div>
+  <div class="sheet hidden" id="pick-sheet">
+    <div class="sheet-head">
+      <h2>自己选菜</h2>
+      <button class="icon-btn" id="btn-close-pick" aria-label="关闭">✕</button>
+    </div>
+    <div class="pick-list" id="pick-list"></div>
+    <button class="ghost-btn" id="btn-pick-add">＋ 新增菜品</button>
+    <button class="primary-btn" id="btn-pick-save" disabled>选好了</button>
+  </div>
+
+  <!-- 添加菜品 -->
   <div class="sheet-mask hidden" id="sheet-mask"></div>
   <div class="sheet hidden" id="dish-sheet">
     <div class="sheet-head">
@@ -81,10 +107,10 @@
       <input type="text" id="input-name" placeholder="例如：番茄炒蛋" maxlength="20">
     </div>
     <div class="field">
-      <label>分类</label>
+      <label>分类 <span class="required" id="category-hint">（请选择）</span></label>
       <div class="chips" id="category-chips">
         <button class="chip" data-value="staple">主食</button>
-        <button class="chip" data-value="main">主菜</button>
+        <button class="chip" data-value="main">荤菜</button>
         <button class="chip" data-value="veg">素菜</button>
       </div>
     </div>
@@ -92,7 +118,13 @@
     <div class="dish-list" id="dish-list"></div>
   </div>
 
-  <input type="file" id="file-input" accept="image/*" class="hidden">
+  <input type="file" id="file-input" accept="image/*" multiple class="hidden">
+
+  <!-- 图片查看器 -->
+  <div class="viewer hidden" id="viewer">
+    <button class="viewer-close" id="viewer-close" aria-label="关闭">✕</button>
+    <img class="viewer-img" id="viewer-img" alt="照片">
+  </div>
 
   <!-- 确认弹窗 -->
   <div class="dialog-mask hidden" id="dialog-mask">

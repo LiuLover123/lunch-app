@@ -1,7 +1,14 @@
 const CATEGORIES = [
   { key: 'staple', label: '主食' },
-  { key: 'main', label: '主菜' },
+  { key: 'main', label: '荤菜' },
   { key: 'veg', label: '素菜' },
+];
+
+// 随机搭配的结构：主食 ×1 + 荤菜 ×2 + 素菜 ×1
+const COMBO_SPEC = [
+  { key: 'staple', label: '主食', count: 1 },
+  { key: 'main', label: '荤菜', count: 2 },
+  { key: 'veg', label: '素菜', count: 1 },
 ];
 
 const RECENT_DAYS = 2;
@@ -32,13 +39,19 @@ function recentDates(fromDate) {
   return dates;
 }
 
-function pickRandom(list) {
-  return list[Math.floor(Math.random() * list.length)];
+// 从数组里随机取 count 个不重复的元素
+function pickSome(list, count) {
+  const pool = list.slice();
+  const picked = [];
+  while (picked.length < count && pool.length > 0) {
+    picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  }
+  return picked;
 }
 
 /**
- * 纯规则引擎：主食 + 主菜 + 素菜 各一，排除前后 2 天内出现过的菜品。
- * 零调用、零延迟、结果可复现（给定同一输入与随机源）。
+ * 纯规则引擎：主食 ×1 + 荤菜 ×2 + 素菜 ×1，排除前后 2 天内出现过的菜品。
+ * 某分类菜品不足时不阻塞，按实际数量给出，并在理由里说明原因。
  */
 function generateCombo(dishes, records, dateStr) {
   const excluded = new Set();
@@ -52,20 +65,64 @@ function generateCombo(dishes, records, dateStr) {
   const combo = [];
   const missing = [];
 
-  for (const cat of CATEGORIES) {
-    const pool = dishes.filter((d) => d.category === cat.key);
-    const fresh = pool.filter((d) => !excluded.has(d.id));
-    const usable = fresh.length > 0 ? fresh : pool;
-
-    if (usable.length === 0) {
-      missing.push(cat.label);
+  for (const spec of COMBO_SPEC) {
+    const pool = dishes.filter((d) => d.category === spec.key);
+    if (pool.length === 0) {
+      missing.push(`没有${spec.label}`);
       continue;
     }
-    const chosen = pickRandom(usable);
-    combo.push({ category: cat.key, categoryLabel: cat.label, dishId: chosen.id, name: chosen.name });
+
+    const fresh = pool.filter((d) => !excluded.has(d.id));
+
+    // 优先取没吃过的；不够时才用吃过的补，尽量少重复
+    const picked = pickSome(fresh, spec.count);
+    if (picked.length < spec.count) {
+      const rest = pool.filter((d) => !picked.some((p) => p.id === d.id));
+      picked.push(...pickSome(rest, spec.count - picked.length));
+    }
+
+    for (const p of picked) {
+      combo.push({
+        category: spec.key,
+        categoryLabel: spec.label,
+        dishId: p.id,
+        name: p.name,
+      });
+    }
+
+    if (picked.length < spec.count) {
+      missing.push(`${spec.label}只有 ${picked.length} 道（需 ${spec.count} 道）`);
+    }
   }
 
   return { combo, missing, reason: buildReason(combo, missing) };
+}
+
+/**
+ * 自选搭配：按用户勾选的菜品生成，不做重复排除、不限数量。
+ * 输出按分类顺序排列，同一道菜不会重复。
+ */
+function buildManualCombo(dishes, selectedIds) {
+  const combo = [];
+  for (const cat of CATEGORIES) {
+    for (const dish of dishes.filter((d) => d.category === cat.key && selectedIds.includes(d.id))) {
+      combo.push({
+        category: cat.key,
+        categoryLabel: cat.label,
+        dishId: dish.id,
+        name: dish.name,
+      });
+    }
+  }
+
+  if (combo.length === 0) return { combo, missing: [], reason: '' };
+
+  const counts = {};
+  for (const c of combo) counts[c.categoryLabel] = (counts[c.categoryLabel] || 0) + 1;
+  const detail = Object.entries(counts).map(([k, v]) => `${v} 道${k}`).join('、');
+  const reason = `自己选的搭配：${combo.map((c) => c.name).join('、')}。（${detail}）`;
+
+  return { combo, missing: [], reason };
 }
 
 function buildReason(combo, missing) {
@@ -74,18 +131,16 @@ function buildReason(combo, missing) {
   const names = combo.map((c) => c.name).join('、');
   const parts = [`今日推荐搭配：${names}。`];
 
-  const hasVeg = combo.some((c) => c.category === 'veg');
-  const hasMain = combo.some((c) => c.category === 'main');
-  const hasStaple = combo.some((c) => c.category === 'staple');
+  const stapleCount = combo.filter((c) => c.category === 'staple').length;
+  const mainCount = combo.filter((c) => c.category === 'main').length;
+  const vegCount = combo.filter((c) => c.category === 'veg').length;
 
   const why = [];
-  if (hasStaple) why.push('有主食垫底');
-  if (hasMain) why.push('有主菜解馋');
-  if (hasVeg) why.push('有素菜平衡');
-  if (why.length) parts.push('这样配下来，' + why.join('、') + '，荤素搭配不腻。');
+  if (stapleCount) why.push('有主食垫底');
+  if (mainCount) why.push(`${mainCount} 道荤菜`);
+  if (vegCount) why.push(`${vegCount} 道素菜解腻`);
+  if (why.length) parts.push('按「两荤一素」配的，' + why.join('、') + '，荤素均衡。');
 
-  if (missing.length) {
-    parts.push(`（缺少${missing.join('、')}分类的菜品，分类越全搭配越合理。）`);
-  }
+  if (missing.length) parts.push(`（${missing.join('、')}，分类越全搭配越完整。）`);
   return parts.join('');
 }

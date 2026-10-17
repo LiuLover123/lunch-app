@@ -1,5 +1,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
+  const MAX_PHOTOS = 6;
 
   const state = {
     dishes: [],
@@ -7,7 +8,8 @@
     viewYear: new Date().getFullYear(),
     viewMonth: new Date().getMonth(),
     selectedDate: null,
-    pendingCategory: 'main',
+    pendingCategory: null,
+    pickSelected: new Set(),
   };
 
   const el = {
@@ -21,10 +23,6 @@
     btnSettings: $('btn-settings'),
     settingsMenu: $('settings-menu'),
     menuClear: $('menu-clear'),
-    dialogMask: $('dialog-mask'),
-    dialogText: $('dialog-text'),
-    dialogCancel: $('dialog-cancel'),
-    dialogConfirm: $('dialog-confirm'),
     btnAddDish: $('btn-add-dish'),
     panel: $('panel'),
     signinView: $('signin-view'),
@@ -32,16 +30,40 @@
     resultView: $('result-view'),
     resultDate: $('result-date'),
     combo: $('combo'),
-    photoSlot: $('photo-slot'),
+    photoGrid: $('photo-grid'),
     emptyState: $('empty-state'),
+
+    choiceMask: $('choice-mask'),
+    choiceSheet: $('choice-sheet'),
+    btnCloseChoice: $('btn-close-choice'),
+    btnRandom: $('btn-random'),
+    btnManual: $('btn-manual'),
+
+    pickMask: $('pick-mask'),
+    pickSheet: $('pick-sheet'),
+    btnClosePick: $('btn-close-pick'),
+    pickList: $('pick-list'),
+    btnPickAdd: $('btn-pick-add'),
+    btnPickSave: $('btn-pick-save'),
+
     sheetMask: $('sheet-mask'),
     dishSheet: $('dish-sheet'),
     btnCloseSheet: $('btn-close-sheet'),
     inputName: $('input-name'),
     categoryChips: $('category-chips'),
+    categoryHint: $('category-hint'),
     btnSaveDish: $('btn-save-dish'),
     dishList: $('dish-list'),
+
     fileInput: $('file-input'),
+    viewer: $('viewer'),
+    viewerImg: $('viewer-img'),
+    viewerClose: $('viewer-close'),
+
+    dialogMask: $('dialog-mask'),
+    dialogText: $('dialog-text'),
+    dialogCancel: $('dialog-cancel'),
+    dialogConfirm: $('dialog-confirm'),
   };
 
   async function refreshData() {
@@ -136,7 +158,6 @@
         el.emptyState.classList.remove('hidden');
         return;
       }
-      // 今天未签到：显示"偷懒"提示 + 签到按钮（整体居中）
       el.noticeText.textContent = '今天偷懒了没有吃饭';
       el.notice.classList.remove('hidden');
       el.signinView.classList.remove('hidden');
@@ -144,7 +165,6 @@
       return;
     }
 
-    // 选中的历史日期：只显示提示文案
     el.noticeText.textContent = '这天没有记录';
     el.notice.classList.add('standalone');
     el.notice.classList.remove('hidden');
@@ -177,42 +197,56 @@
       el.combo.appendChild(reason);
     }
 
-    renderPhoto(rec);
+    renderPhotos(rec);
   }
 
-  function renderPhoto(rec) {
-    el.photoSlot.innerHTML = '';
-    if (rec.photo) {
-      const wrap = document.createElement('div');
-      wrap.className = 'photo-wrap';
+  // 照片网格：每行 3 张，最多 2 行（6 张）；＋ 紧跟在最后一张后面
+  function renderPhotos(rec) {
+    el.photoGrid.innerHTML = '';
+    if (!rec.photos) rec.photos = [];
+
+    rec.photos.forEach((src, index) => {
+      const cell = document.createElement('div');
+      cell.className = 'photo-cell';
+
       const img = document.createElement('img');
-      img.className = 'photo-img';
-      img.src = rec.photo;
-      img.alt = '当日照片';
+      img.src = src;
+      img.alt = `照片 ${index + 1}`;
+      img.addEventListener('click', () => openViewer(src));
+
       const del = document.createElement('button');
       del.className = 'photo-del';
       del.textContent = '✕';
-      del.addEventListener('click', async () => {
-        rec.photo = null;
+      del.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        rec.photos.splice(index, 1);
         await Records.put(rec);
-        renderPhoto(rec);
+        renderPhotos(rec);
       });
-      wrap.appendChild(img);
-      wrap.appendChild(del);
-      el.photoSlot.appendChild(wrap);
-      return;
+
+      cell.appendChild(img);
+      cell.appendChild(del);
+      el.photoGrid.appendChild(cell);
+    });
+
+    if (rec.photos.length < MAX_PHOTOS) {
+      const add = document.createElement('button');
+      add.className = 'photo-cell add-photo-cell';
+      add.textContent = '＋';
+      add.setAttribute('aria-label', '添加照片');
+      add.addEventListener('click', () => el.fileInput.click());
+      el.photoGrid.appendChild(add);
     }
+  }
 
-    const btn = document.createElement('button');
-    btn.className = 'add-photo';
-    btn.textContent = '＋';
-    btn.addEventListener('click', () => el.fileInput.click());
-    const hint = document.createElement('span');
-    hint.className = 'photo-hint';
-    hint.textContent = '添加今天的照片';
+  function openViewer(src) {
+    el.viewerImg.src = src;
+    el.viewer.classList.remove('hidden');
+  }
 
-    el.photoSlot.appendChild(btn);
-    el.photoSlot.appendChild(hint);
+  function closeViewer() {
+    el.viewer.classList.add('hidden');
+    el.viewerImg.src = '';
   }
 
   function selectDate(dateStr) {
@@ -221,27 +255,121 @@
     renderPanel();
   }
 
-  async function handleSignin() {
+  /* ---------- 签到：随机 / 自选 ---------- */
+
+  function openChoice() {
+    el.choiceMask.classList.remove('hidden');
+    el.choiceSheet.classList.remove('hidden');
+  }
+
+  function closeChoice() {
+    el.choiceMask.classList.add('hidden');
+    el.choiceSheet.classList.add('hidden');
+  }
+
+  async function saveRecord(combo, reason) {
     const date = todayStr();
-    if (state.records[date]) return;
-
-    const { combo, reason } = generateCombo(state.dishes, state.records, date);
-    if (combo.length === 0) return;
-
-    const record = { date, dishes: combo, reason, photo: null, createdAt: Date.now() };
+    const record = { date, dishes: combo, reason, photos: [], createdAt: Date.now() };
     await Records.put(record);
     state.records[date] = record;
-
     state.selectedDate = null;
     renderCalendar();
     renderPanel();
   }
 
+  async function doRandom() {
+    closeChoice();
+    const date = todayStr();
+    if (state.records[date]) return;
+
+    const { combo, reason } = generateCombo(state.dishes, state.records, date);
+    if (combo.length === 0) return;
+    await saveRecord(combo, reason);
+  }
+
+  function openPick() {
+    closeChoice();
+    state.pickSelected = new Set();
+    el.pickMask.classList.remove('hidden');
+    el.pickSheet.classList.remove('hidden');
+    renderPickList();
+  }
+
+  function closePick() {
+    el.pickMask.classList.add('hidden');
+    el.pickSheet.classList.add('hidden');
+  }
+
+  function renderPickList() {
+    el.pickList.innerHTML = '';
+
+    if (state.dishes.length === 0) {
+      const p = document.createElement('p');
+      p.className = 'pick-empty';
+      p.textContent = '还没有菜品，点下面的「＋ 新增菜品」添加';
+      el.pickList.appendChild(p);
+    }
+
+    for (const cat of CATEGORIES) {
+      const group = state.dishes.filter((d) => d.category === cat.key);
+      if (group.length === 0) continue;
+
+      const title = document.createElement('div');
+      title.className = 'dish-group-title';
+      title.textContent = `${cat.label} · ${group.length}`;
+      el.pickList.appendChild(title);
+
+      for (const dish of group) {
+        const selected = state.pickSelected.has(dish.id);
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'pick-item' + (selected ? ' selected' : '');
+
+        const name = document.createElement('span');
+        name.textContent = dish.name;
+        const mark = document.createElement('span');
+        mark.className = 'pick-mark';
+        mark.textContent = selected ? '✓' : '';
+
+        row.appendChild(name);
+        row.appendChild(mark);
+        row.addEventListener('click', () => {
+          if (state.pickSelected.has(dish.id)) state.pickSelected.delete(dish.id);
+          else state.pickSelected.add(dish.id);
+          renderPickList();
+        });
+        el.pickList.appendChild(row);
+      }
+    }
+
+    updatePickSave();
+  }
+
+  function updatePickSave() {
+    const n = state.pickSelected.size;
+    el.btnPickSave.textContent = n > 0 ? `选好了（${n} 道）` : '选好了';
+    el.btnPickSave.disabled = n === 0;
+  }
+
+  async function savePick() {
+    const ids = [...state.pickSelected];
+    if (ids.length === 0) return;
+    if (state.records[todayStr()]) { closePick(); return; }
+
+    const { combo, reason } = buildManualCombo(state.dishes, ids);
+    if (combo.length === 0) return;
+
+    closePick();
+    await saveRecord(combo, reason);
+  }
+
+  /* ---------- 菜品管理 ---------- */
+
   function openSheet() {
     el.sheetMask.classList.remove('hidden');
     el.dishSheet.classList.remove('hidden');
     el.inputName.value = '';
-    setCategory('main');
+    setCategory(null);
     renderDishList();
     el.inputName.focus();
   }
@@ -256,6 +384,7 @@
     for (const chip of el.categoryChips.querySelectorAll('.chip')) {
       chip.classList.toggle('active', chip.dataset.value === value);
     }
+    el.categoryHint.classList.toggle('warn', !value);
   }
 
   function renderDishList() {
@@ -284,8 +413,10 @@
         del.textContent = '✕';
         del.addEventListener('click', async () => {
           await Dishes.remove(dish.id);
+          state.pickSelected.delete(dish.id);
           await refreshData();
           renderDishList();
+          if (isPickOpen()) renderPickList();
           renderCalendar();
           renderPanel();
         });
@@ -296,29 +427,47 @@
     }
   }
 
+  function isPickOpen() {
+    return !el.pickSheet.classList.contains('hidden');
+  }
+
   async function saveDish() {
     const name = el.inputName.value.trim();
     if (!name) {
       el.inputName.focus();
       return;
     }
+    if (!state.pendingCategory) {
+      el.categoryHint.classList.add('warn');
+      return;
+    }
+
     await Dishes.add({ name, category: state.pendingCategory });
     await refreshData();
     el.inputName.value = '';
+    setCategory(null);
     renderDishList();
+    if (isPickOpen()) renderPickList();
     renderCalendar();
     renderPanel();
   }
 
-  async function handlePhoto(file) {
+  /* ---------- 照片 ---------- */
+
+  async function handlePhotos(files) {
     const date = state.selectedDate || todayStr();
     const rec = state.records[date];
     if (!rec) return;
 
-    const dataUrl = await downscale(file, 1280);
-    rec.photo = dataUrl;
+    if (!rec.photos) rec.photos = [];
+    for (const file of files) {
+      if (rec.photos.length >= MAX_PHOTOS) break;
+      try {
+        rec.photos.push(await downscale(file, 1000));
+      } catch (e) { /* 跳过损坏文件 */ }
+    }
     await Records.put(rec);
-    renderPhoto(rec);
+    renderPhotos(rec);
   }
 
   function downscale(file, maxSize) {
@@ -347,6 +496,8 @@
     });
   }
 
+  /* ---------- 设置与弹窗 ---------- */
+
   function toggleMenu(show) {
     const next = show === undefined ? el.settingsMenu.classList.contains('hidden') : show;
     el.settingsMenu.classList.toggle('hidden', !next);
@@ -366,7 +517,7 @@
   }
 
   async function clearAllData() {
-    // 关键：先关掉自己持有的数据库连接，否则 deleteDatabase 会被阻塞、数据删不掉
+    // 先关掉自己持有的数据库连接，否则 deleteDatabase 会被阻塞、数据删不掉
     await closeDB();
 
     try {
@@ -403,12 +554,27 @@
       if (state.viewMonth > 11) { state.viewMonth = 0; state.viewYear++; }
       renderCalendar();
     });
+
+    el.btnSignin.addEventListener('click', openChoice);
+    el.btnCloseChoice.addEventListener('click', closeChoice);
+    el.choiceMask.addEventListener('click', closeChoice);
+    el.btnRandom.addEventListener('click', doRandom);
+    el.btnManual.addEventListener('click', openPick);
+
+    el.btnClosePick.addEventListener('click', closePick);
+    el.pickMask.addEventListener('click', closePick);
+    el.btnPickAdd.addEventListener('click', openSheet);
+    el.btnPickSave.addEventListener('click', savePick);
+
     el.btnAddDish.addEventListener('click', openSheet);
     el.btnCloseSheet.addEventListener('click', closeSheet);
     el.sheetMask.addEventListener('click', closeSheet);
     el.btnSaveDish.addEventListener('click', saveDish);
     el.inputName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveDish(); });
-    el.btnSignin.addEventListener('click', handleSignin);
+
+    el.viewerClose.addEventListener('click', closeViewer);
+    el.viewer.addEventListener('click', (e) => { if (e.target === el.viewer) closeViewer(); });
+
     el.btnSettings.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleMenu();
@@ -420,11 +586,15 @@
     });
     el.dialogCancel.addEventListener('click', () => closeDialog(false));
     el.dialogConfirm.addEventListener('click', () => closeDialog(true));
+
     document.addEventListener('click', () => toggleMenu(false));
+
     el.fileInput.addEventListener('change', (e) => {
-      if (e.target.files && e.target.files[0]) handlePhoto(e.target.files[0]);
+      const files = Array.from(e.target.files || []);
+      if (files.length) handlePhotos(files);
       e.target.value = '';
     });
+
     for (const chip of el.categoryChips.querySelectorAll('.chip')) {
       chip.addEventListener('click', () => setCategory(chip.dataset.value));
     }
@@ -449,7 +619,6 @@
     setInterval(check, 60000);
   }
 
-  // 新版本自动接管：检测到更新时刷新页面，避免一直看到旧缓存
   function setupServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
 
